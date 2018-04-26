@@ -28,7 +28,7 @@ class Peer {
 			ip, // IP address in dotted decimal notation, e.g., "127.0.0.1"
 			filesPath; // path to local file repository, e.g., "dir1/dir2/dir3"
 	int lPort, // lookup port number (permanent UDP port)
-			ftPort; // fil	e transfer port number (permanent TCP port)
+			ftPort; // file transfer port number (permanent TCP port)
 	List<Neighbor> neighbors; // current neighbor peers of this peer
 	LookupThread lThread; // thread listening to the lookup socket
 	FileTransferThread ftThread; // thread list. to the file transfer socket
@@ -45,11 +45,26 @@ class Peer {
 	Peer(String name2, String ip, int lPort, String filesPath, String nIP, int nPort) {
 
 		/* to be completed */
+		//data types
 		this.name = name2;
-		this.lPort = lPort;
 		this.filesPath = filesPath;
 		this.ip = nIP;
+		this.seqNumber = 0;
 		
+		//others
+		this.scanner = new Scanner(System.in);
+		this.findRequests = new HashSet<String>();
+		
+		//look up
+		this.lThread = new LookupThread();
+		this.lThread.start();
+		this.lPort = lPort;
+		
+		//file transfer
+		this.ftThread = new FileTransferThread();
+		this.ftThread.start();
+		this.ftPort = lPort+1;
+
 	}// constructor
 
 	/*
@@ -70,6 +85,17 @@ class Peer {
 	int getChoice() {
 
 		/* to be completed */
+		
+		String input = scanner.next();
+		
+		if(input.toUpperCase().equals("S") || input.equals("1"))
+			return 1;
+		else if(input.toUpperCase().equals("F") || input.equals("2"))
+			return 2;
+		else if(input.toUpperCase().equals("G") || input.equals("3"))
+			return 3;
+		else if(input.toUpperCase().equals("Q") || input.equals("4"))
+			return 4;
 
 		return -1;
 	}// getChoice method
@@ -80,8 +106,32 @@ class Peer {
 	 * selected command, until the latter is "Quit"
 	 */
 	void run() {
+		
+		int input;
 
 		/* to be completed */
+		while(true) {
+			displayMenu();
+			
+			input = getChoice();
+			
+			switch(input) {
+				case 1:
+					this.processStatusRequest();
+					break;
+				case 2:
+					this.processFindRequest();
+					break;
+				case 3:
+					this.processGetRequest();
+					break;
+				case 4:
+					this.processQuitRequest();
+					break;
+				default:
+					break;
+			}
+		}
 
 	}// run method
 
@@ -92,6 +142,7 @@ class Peer {
 	void processQuitRequest() {
 
 		/* to be completed */
+		this.lThread.terminate();
 
 	}// processQuitRequest method
 
@@ -104,7 +155,16 @@ class Peer {
 	 */
 	void processStatusRequest() {
 
+		File local_directory = new File(filesPath);
+		
+		System.out.println("Local files:");
+		
 		/* to be completed */
+		for(File file : local_directory.listFiles()) {
+			System.out.println(file.getName());
+		}
+		
+		this.printNeighbors();
 
 	}// processStatusRequest method
 
@@ -147,6 +207,16 @@ class Peer {
 	void writeFile(String fileName, String contents) {
 
 		/* to be completed */
+		try {
+		File file = new File(filesPath + "/" + fileName);
+		
+		if(!file.exists())
+			file.createNewFile();
+		
+		}catch(IOException e) {
+			e.printStackTrace();
+		}
+		
 
 	}// writeFile method
 
@@ -156,9 +226,10 @@ class Peer {
 	 * handout.
 	 */
 	void printNeighbors() {
-
-		/* to be completed */
-
+		System.out.println("Neighbors:");
+		for(Neighbor n : this.neighbors)
+			System.out.println("\t" + n.ip);
+		System.out.println("==================");
 	}// printNeighbors method
 
 	/*
@@ -294,6 +365,20 @@ class Peer {
 		byte[] readFile(File file) {
 
 			/* to be completed */
+			
+			try {
+				FileInputStream stream = new FileInputStream(file);
+				
+				byte[] file_content = new byte[(int)file.length()];
+				
+				stream.read(file_content);
+				
+				return file_content;
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 
 			return null;
 		}// readFile method
@@ -305,6 +390,10 @@ class Peer {
 		void openStreams() throws IOException {
 
 			/* to be completed */
+			this.serverSocket = new ServerSocket(55555);
+			this.clientSocket = serverSocket.accept();
+			this.out = new DataOutputStream(clientSocket.getOutputStream());
+			this.in = new DataInputStream(clientSocket.getInputStream());
 
 		}// openStreams method
 
@@ -314,6 +403,14 @@ class Peer {
 		void close() {
 
 			/* to be completed */
+			try {
+				this.out.close();
+				this.in.close();
+				this.serverSocket.close();
+				this.clientSocket.close();
+			}catch(IOException e) {
+				e.printStackTrace();
+			}
 
 		}// close method
 
