@@ -177,10 +177,25 @@ class Peer {
 	 */
 	void processFindRequest() {
 		
+		boolean isLocalFile = false;
+		
+		System.out.print("Name of file to find: ");
 		String requested_file = scanner.next();
 		
-		for(Neighbor n : neighbors) {
-			
+		File file = new File(requested_file);
+		
+		for(File local_file : file.listFiles()) {
+			if(local_file.getName().equals(requested_file)) {
+				System.out.println("This file exists locally in " + filesPath);
+				isLocalFile = true;
+				break;
+			}
+		}
+		
+		if(isLocalFile) {
+			for(Neighbor n : neighbors) {
+				
+			}
 		}
 
 	}// processFindRequest method
@@ -197,10 +212,22 @@ class Peer {
 	 * assignment handout.
 	 */
 	void processGetRequest() {
-
-		/* to be completed */
 		
-
+		String request = scanner.nextLine();
+		String[] request_parts = request.split(" ");
+		
+		byte[] data = request.getBytes();
+		
+		DatagramPacket send_packet = new DatagramPacket(data, data.length, InetSocketAddress(request_parts[1], Integer.parseInt(request_parts[2]));
+		try {
+			DatagramSocket send_socket = new DatagramSocket();
+			send_socket.send(send_packet);
+		} catch (SocketException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
 	}// processGetRequest method
 
 	/*
@@ -286,23 +313,25 @@ class Peer {
 		public void run() {
 			try {
 				socket = new DatagramSocket();
+				socket.setBroadcast(true);
 			} catch (SocketException e) {
 				e.printStackTrace();
 			}
 			
-			String request = "";
+			byte[] b = new byte[0];
+			
+			DatagramPacket packet = new DatagramPacket(b, b.length, new InetSocketAddress("255.255.255.255", 5000));
 			
 			while(true) {
 				try {
-					byte[] b = new byte[0];
-					
-					DatagramPacket packet = new DatagramPacket(b, b.length);
 					socket.receive(packet);
-					if(packet.getData().length != 0) {
-						process(packet.toString());
-					}else {
-						request = scanner.nextLine();
-						process(request);
+					
+					if(neighbors.size() == 1) {
+						this.process("join " + ip + " ");
+					} else {
+						
+						String temp_data = new String(packet.getData());
+						System.out.println(temp_data);
 					}
 				}catch(IOException e) {
 					e.printStackTrace();
@@ -325,6 +354,11 @@ class Peer {
 				DatagramPacket packet = new DatagramPacket(b, b.length);
 				socket.receive(packet);
 				packet.getData();
+				
+				if(request.contains("lookup")) {
+					processLookup(new StringTokenizer(request.substring(6), " "));
+				}
+				
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -359,7 +393,11 @@ class Peer {
 					if(!ip.equals(n.ip) && !findRequests.contains(line.toString())) {
 						System.out.println("Forward request to " + n.ip);
 						findRequests.add(line.toString());
-						socket.send(new DatagramPacket(line.toString().getBytes(), line.toString().getBytes().length));
+						try {
+							socket.send(new DatagramPacket(line.toString().getBytes(), line.toString().getBytes().length));
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
 					}
 				}
 			}else {
