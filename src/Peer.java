@@ -369,7 +369,7 @@ class Peer {
 				for(File file : directory.listFiles()) {
 					if(file.getName().equals(file_name)) {
 						System.out.println("Received: lookup " + line.toString());
-						System.out.println("Sent: file " + file_name + " is at " + ));
+//						System.out.println("Sent: file " + file_name + " is at " + ));
 					}
 				}
 				
