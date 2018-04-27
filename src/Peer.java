@@ -44,7 +44,6 @@ class Peer {
 	 */
 	Peer(String name2, String ip, int lPort, String filesPath, String nIP, int nPort) {
 
-		/* to be completed */
 		//data types
 		this.name = name2;
 		this.filesPath = filesPath;
@@ -54,6 +53,7 @@ class Peer {
 		//others
 		this.scanner = new Scanner(System.in);
 		this.findRequests = new HashSet<String>();
+		this.neighbors = new ArrayList<Neighbor>();
 		
 		//look up
 		this.lThread = new LookupThread();
@@ -64,7 +64,10 @@ class Peer {
 		this.ftThread = new FileTransferThread();
 		this.ftThread.start();
 		this.ftPort = lPort+1;
-
+		
+		if(!nIP.equals("") && nPort != 0) {
+			neighbors.add(new Neighbor(nIP, nPort));
+		}
 	}// constructor
 
 	/*
@@ -83,9 +86,6 @@ class Peer {
 	 * input the next command chosen by the user
 	 */
 	int getChoice() {
-
-		/* to be completed */
-		
 		String input = scanner.next();
 		
 		if(input.toUpperCase().equals("S") || input.equals("1"))
@@ -109,7 +109,6 @@ class Peer {
 		
 		int input;
 
-		/* to be completed */
 		while(true) {
 			displayMenu();
 			
@@ -140,10 +139,9 @@ class Peer {
 	 * peer's neighbors, then terminate the lookup thread
 	 */
 	void processQuitRequest() {
-
-		/* to be completed */
+		
 		this.lThread.terminate();
-
+		
 	}// processQuitRequest method
 
 	/*
@@ -178,8 +176,12 @@ class Peer {
 	 * Find-request ID properly.
 	 */
 	void processFindRequest() {
-
-		/* to be completed */
+		
+		String requested_file = scanner.next();
+		
+		for(Neighbor n : neighbors) {
+			
+		}
 
 	}// processFindRequest method
 
@@ -197,6 +199,7 @@ class Peer {
 	void processGetRequest() {
 
 		/* to be completed */
+		
 
 	}// processGetRequest method
 
@@ -206,7 +209,6 @@ class Peer {
 	 */
 	void writeFile(String fileName, String contents) {
 
-		/* to be completed */
 		try {
 		File file = new File(filesPath + "/" + fileName);
 		
@@ -216,8 +218,6 @@ class Peer {
 		}catch(IOException e) {
 			e.printStackTrace();
 		}
-		
-
 	}// writeFile method
 
 	/*
@@ -284,9 +284,30 @@ class Peer {
 		 * method below.
 		 */
 		public void run() {
-
-			/* to be completed */
-
+			try {
+				socket = new DatagramSocket();
+			} catch (SocketException e) {
+				e.printStackTrace();
+			}
+			
+			String request = "";
+			
+			while(true) {
+				try {
+					byte[] b = new byte[0];
+					
+					DatagramPacket packet = new DatagramPacket(b, b.length);
+					socket.receive(packet);
+					if(packet.getData().length != 0) {
+						process(packet.toString());
+					}else {
+						request = scanner.nextLine();
+						process(request);
+					}
+				}catch(IOException e) {
+					e.printStackTrace();
+				}
+			}
 		}// run method
 
 		/*
@@ -297,9 +318,20 @@ class Peer {
 		 * helper method below.
 		 */
 		void process(String request) {
-
-			/* to be completed */
-
+			
+			byte[] b = new byte[0];
+			
+			try {
+				DatagramPacket packet = new DatagramPacket(b, b.length);
+				socket.receive(packet);
+				packet.getData();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			
+			if(request.toLowerCase().contains("lookup")) {
+				processLookup(new StringTokenizer(request.substring(6), " "));
+			}
 		}// process method
 
 		/*
@@ -316,10 +348,33 @@ class Peer {
 		 * that sent this request (that is, the "from" peer as opposed to the "source"
 		 * peer of the request).
 		 */
-		void processLookup(StringTokenizer line) {
-
-			/* to be completed */
-
+		void processLookup(StringTokenizer line) {			
+			String file_name = line.nextToken();
+			String ip = line.nextToken();
+			
+			if(findRequests.contains(ip)) {
+				System.out.println("File is NOT available at this peer");
+				
+				for(Neighbor n : neighbors) {
+					if(!ip.equals(n.ip) && !findRequests.contains(line.toString())) {
+						System.out.println("Forward request to " + n.ip);
+						findRequests.add(line.toString());
+						socket.send(new DatagramPacket(line.toString().getBytes(), line.toString().getBytes().length));
+					}
+				}
+			}else {
+				
+				File directory = new File(filesPath);
+				
+				for(File file : directory.listFiles()) {
+					if(file.getName().equals(file_name)) {
+						System.out.println("Received: lookup " + line.toString());
+						System.out.println("Sent: file " + file_name + " is at " + ));
+					}
+				}
+				
+			}
+			
 		}// processLookup method
 
 	}// LookupThread class
@@ -340,8 +395,24 @@ class Peer {
 		 * helper method below (and is finally closed).
 		 */
 		public void run() {
+			
+			request = ""; reply = "";
 
-			/* to be completed */
+			while(true) {		
+				try{
+					String requested_file = in.readUTF();
+					
+					this.openStreams();
+					
+					process(requested_file);
+					
+					this.close();
+										
+				}catch(IOException e) {
+					e.printStackTrace();
+				}
+				
+			}
 
 		}// run method
 
@@ -353,9 +424,19 @@ class Peer {
 		 * Otherwise, send back a "fileNotFound" message.
 		 */
 		void process(String request) {
-
-			/* to be completed */
-
+			
+			File file = new File(request);
+			
+			try {
+				if(file.exists()) {
+					out.write(readFile(file));
+					out.writeUTF("fileFound");
+				} else {
+					out.writeUTF("fileNotFound");
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}// process method
 
 		/*
@@ -363,9 +444,6 @@ class Peer {
 		 * the contents of the file as a byte array.
 		 */
 		byte[] readFile(File file) {
-
-			/* to be completed */
-			
 			try {
 				FileInputStream stream = new FileInputStream(file);
 				
@@ -379,7 +457,6 @@ class Peer {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-
 			return null;
 		}// readFile method
 
