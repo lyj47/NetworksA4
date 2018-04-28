@@ -46,8 +46,9 @@ class Peer {
 
 		//local directory
 		File directory = new File(filesPath);
-		if(!directory.exists())
+		if(!directory.exists()) {
 			directory.mkdirs();
+		}
 		try {
 			String file_name = "F"+name2.charAt(name2.length()-1) + ".txt";
 			File new_file = new File(directory + "/" + file_name);
@@ -62,8 +63,8 @@ class Peer {
 		//data types
 		this.name = name2;
 		this.filesPath = filesPath;
-		this.ip = nIP;
-		this.seqNumber = 0;
+		this.ip = ip;
+		this.seqNumber = 1;
 		
 		//others
 		this.scanner = new Scanner(System.in);
@@ -154,8 +155,20 @@ class Peer {
 	 */
 	void processQuitRequest() {
 		
-		this.lThread.terminate();
+		byte[] leave_request = new String("leave " + this.ip + " " + this.lPort).getBytes();
 		
+		DatagramPacket packet;
+		try {
+			packet = new DatagramPacket(leave_request, leave_request.length, new InetSocketAddress("255.255.255.255", 5000));
+			DatagramSocket socket = new DatagramSocket();
+			socket.send(packet);
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		} catch (SocketException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}// processQuitRequest method
 
 	/*
@@ -171,10 +184,11 @@ class Peer {
 		
 		System.out.println("Local files:");
 		
-		if(local_directory.exists())
+		if(local_directory.exists()) {
 			for(File file : local_directory.listFiles()) {
 				System.out.println("\t" + file.getName());
 			}
+		}
 		
 		this.printNeighbors();
 
@@ -190,16 +204,15 @@ class Peer {
 	 * Find-request ID properly.
 	 */
 	void processFindRequest() {
-		// ip, port, name, sequence number 
-		String source_information = ip + " " + (this.lPort - 1) + " " + this.name + " " + this.seqNumber;
-		
 		scanner.nextLine();
 		System.out.print("Name of file to find: ");
 		String requested_file = scanner.nextLine().trim();
-		requested_file += " " + source_information;
+		// ip, port, name, sequence number 
+		String full_request = "lookup " + requested_file + " " 
+								+ this.name + "#" + this.seqNumber + " " + this.ip + " " + this.lPort;
 		boolean isLocalFile = false;
 		
-		byte[] data = requested_file.getBytes();
+		byte[] data = full_request.getBytes();
 		
 		try {
 			File local_files = new File(filesPath);
@@ -213,14 +226,18 @@ class Peer {
 			}
 			
 			if(!isLocalFile) {
-				DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName("localhost"), 5000);
 				DatagramSocket socket = new DatagramSocket();
+				socket.setBroadcast(true);
+				DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName("localhost"), 5000);
 				socket.send(packet);
 				
-				socket.receive(packet);
+				System.out.println("finished");
 			}
 			
 			//TODO: if file is found, display received message
+			
+			
+			this.seqNumber++;
 			
 		} catch (SocketException e) {
 			e.printStackTrace();
@@ -352,8 +369,7 @@ class Peer {
 		 */
 		public void run() {
 			try {
-				socket = new DatagramSocket(5000);
-				socket.setBroadcast(true);
+				socket = new DatagramSocket(lPort);
 			} catch (SocketException e) {
 				e.printStackTrace();
 			}
@@ -369,18 +385,10 @@ class Peer {
 					socket.receive(packet);
 					
 					String in_request = new String(packet.getData());
+										
+					this.process(in_request);
 					
-					String in_file = in_request.split(" ")[0];
-					
-					if(neighbors.size() == 1) {
-//						this.process();
-					} else {
-						
-						String temp_data = new String(packet.getData());
-						System.out.println(temp_data);
-						
-						process(new String(packet.getData()));
-					}
+					String data = new String(packet.getData());
 				}catch(IOException e) {
 					e.printStackTrace();
 				}
@@ -397,7 +405,21 @@ class Peer {
 		void process(String request) {
 			try {
 				if(request.contains("join")) {
+					String[] request_parts = request.split(" ");
+					boolean isNeighbors = false;
 					
+					String peer_ip = request_parts[1];
+					String peer_port = request_parts[2];
+					
+					for(Neighbor n : neighbors) {
+						if(n.ip.equals(peer_ip)) {
+							isNeighbors = true;
+						}
+					}
+					
+					if(!isNeighbors) {
+						neighbors.add(new Neighbor(peer_ip, Integer.parseInt(peer_port)));
+					}			
 				}
 				else if(request.contains("lookup")) {
 					processLookup(new StringTokenizer(request.substring(6), " "));
@@ -421,9 +443,25 @@ class Peer {
 		 * that sent this request (that is, the "from" peer as opposed to the "source"
 		 * peer of the request).
 		 */
-		void processLookup(StringTokenizer line) {			
+		void processLookup(StringTokenizer line) {
+			
+//			byte[] b = new String("Here is data").getBytes();
+//			
+//			try {
+//				DatagramPacket packet = new DatagramPacket(b, b.length, InetAddress.getByName("localhost"), 5000);
+//				socket.send(packet);
+//			} catch (UnknownHostException e) {
+//				e.printStackTrace();
+//			} catch (IOException e) {
+//				e.printStackTrace();
+//			}
+			
+			System.out.println("processing look up");
+			
 			String file_name = line.nextToken();
-			String ip = line.nextToken();
+			String seq_number = line.nextToken();
+			String source_ip = line.nextToken();
+			String source_port = line.nextToken();
 			
 			if(findRequests.contains(ip)) {
 				System.out.println("File is NOT available at this peer");
@@ -443,15 +481,21 @@ class Peer {
 				
 				File directory = new File(filesPath);
 				
+				boolean hasFoundFile = false;
+				
 				for(File file : directory.listFiles()) {
 					if(file.getName().equals(file_name)) {
 						System.out.println("Received: lookup " + line.toString());
-//						System.out.println("Sent: file " + file_name + " is at " + ));
+						System.out.println("Sent: file " + file_name + " is at " + ip + " (tcp port:\t" + ftPort + ")");
+						hasFoundFile = true;
+						break;
 					}
 				}
 				
+				if(!hasFoundFile) {
+					
+				}
 			}
-			
 		}// processLookup method
 
 	}// LookupThread class
