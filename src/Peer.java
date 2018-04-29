@@ -228,10 +228,11 @@ class Peer {
 			if(!isLocalFile) {
 				DatagramSocket socket = new DatagramSocket();
 				socket.setBroadcast(true);
-				DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName("localhost"), 5000);
-				socket.send(packet);
 				
-				System.out.println("finished");
+				for(Neighbor n : neighbors) {
+					DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName(n.ip), n.port);
+					socket.send(packet);
+				}
 			}
 			
 			//TODO: if file is found, display received message
@@ -408,8 +409,8 @@ class Peer {
 					String[] request_parts = request.split(" ");
 					boolean isNeighbors = false;
 					
-					String peer_ip = request_parts[1];
-					String peer_port = request_parts[2];
+					String peer_ip = request_parts[1].trim();
+					String peer_port = request_parts[2].trim();
 					
 					for(Neighbor n : neighbors) {
 						if(n.ip.equals(peer_ip)) {
@@ -445,55 +446,61 @@ class Peer {
 		 */
 		void processLookup(StringTokenizer line) {
 			
-//			byte[] b = new String("Here is data").getBytes();
-//			
-//			try {
-//				DatagramPacket packet = new DatagramPacket(b, b.length, InetAddress.getByName("localhost"), 5000);
-//				socket.send(packet);
-//			} catch (UnknownHostException e) {
-//				e.printStackTrace();
-//			} catch (IOException e) {
-//				e.printStackTrace();
-//			}
-			
 			System.out.println("processing look up");
 			
-			String file_name = line.nextToken();
-			String seq_number = line.nextToken();
-			String source_ip = line.nextToken();
-			String source_port = line.nextToken();
+			String file_name = line.nextToken().trim();
+			String seq_number = line.nextToken().trim();
+			String source_ip = line.nextToken().trim();
+			String source_port = line.nextToken().trim();
 			
-			if(findRequests.contains(ip)) {
-				System.out.println("File is NOT available at this peer");
-				
-				for(Neighbor n : neighbors) {
-					if(!ip.equals(n.ip) && !findRequests.contains(line.toString())) {
-						System.out.println("Forward request to " + n.ip);
-						findRequests.add(line.toString());
-						try {
-							socket.send(new DatagramPacket(line.toString().getBytes(), line.toString().getBytes().length));
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-					}
-				}
+			String full_request = "lookup " + file_name + " " 
+					+ seq_number + " " + source_ip + " " + source_port;
+			byte[] data = full_request.getBytes();
+			
+			if(findRequests.contains(seq_number)) {
+				System.out.println("Saw request before:\tno forwarding");
 			}else {
-				
+				findRequests.add(seq_number);
 				File directory = new File(filesPath);
 				
 				boolean hasFoundFile = false;
 				
 				for(File file : directory.listFiles()) {
 					if(file.getName().equals(file_name)) {
-						System.out.println("Received: lookup " + line.toString());
-						System.out.println("Sent: file " + file_name + " is at " + ip + " (tcp port:\t" + ftPort + ")");
+						
+						String join_request = "join " + ip + " " + lPort;
+						data = join_request.getBytes();
+						
+						System.out.println("Received: lookup " + file_name + " " + seq_number + " " + source_ip + " " + source_port);
+						System.out.println("Sent: file " + file_name + " is at " + ip + " " + lPort + " (tcp port:\t" + ftPort + ")");
+						DatagramPacket packet;
+						try {
+							packet = new DatagramPacket(data, data.length, InetAddress.getByName(source_ip), Integer.parseInt(source_port));
+							socket.send(packet);
+						} catch (UnknownHostException e) {
+							e.printStackTrace();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
 						hasFoundFile = true;
 						break;
 					}
 				}
 				
 				if(!hasFoundFile) {
-					
+					System.out.println("File is NOT available at this peer");
+					for(Neighbor n : neighbors) {
+						System.out.println("Forward request to " + n.ip + ":" + n.port);
+						DatagramPacket packet;
+						try {
+							packet = new DatagramPacket(data, data.length, InetAddress.getByName(n.ip), n.port);
+							socket.send(packet);
+						} catch (UnknownHostException e) {
+							e.printStackTrace();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
 				}
 			}
 		}// processLookup method
