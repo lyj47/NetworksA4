@@ -269,6 +269,9 @@ class Peer {
 		System.out.print("Port of source peer: ");
 		String source_port = scanner.nextLine();
 		System.out.println("Contents of the received file between dashes: ");
+		System.out.println("---------------------------------- ");
+		
+		String request = "get ";
 		
 		File local_files = new File(filesPath);
 		
@@ -280,9 +283,22 @@ class Peer {
 			}
 		}
 		
-		if(isLocalFile) {
+		DataInputStream in = null; // input stream from client
+		DataOutputStream out = null; // output stream to client
+		
+		if(!isLocalFile) {
 			for(Neighbor n : neighbors) {
-				
+				try {
+					Socket client_socket = new Socket();
+					in = new DataInputStream(client_socket.getInputStream());
+					out = new DataOutputStream(client_socket.getOutputStream());
+					
+//					out.writeUTF();
+					
+					client_socket.close();
+				}catch(IOException e) {
+					
+				}
 			}
 		}
 		
@@ -293,7 +309,6 @@ class Peer {
 	 * contents are given as arguments.
 	 */
 	void writeFile(String fileName, String contents) {
-
 		try {
 		File file = new File(filesPath + "/" + fileName);
 		
@@ -528,19 +543,17 @@ class Peer {
 
 			while(true) {		
 				try{
+					this.openStreams();
 					
-//					this.openStreams();
-//					
-//					process(requested_file);
-//					
-//					this.close();
-										
+					request = in.readUTF();
+					
+					process(request);
+					
+					this.close();
 				}catch(Exception e) {
 					e.printStackTrace();
 				}
-				
 			}
-
 		}// run method
 
 		/*
@@ -551,16 +564,15 @@ class Peer {
 		 * Otherwise, send back a "fileNotFound" message.
 		 */
 		void process(String request) {
-			
 			File file = new File(request);
 			
 			try {
 				if(file.exists()) {
-					out.write(readFile(file));
-					out.writeUTF("fileFound");
+					reply = "fileFound " + new String(readFile(file));
 				} else {
-					out.writeUTF("fileNotFound");
+					reply = "fileNotFound";
 				}
+				out.writeUTF(reply);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -592,21 +604,16 @@ class Peer {
 		 * method does not catch any exceptions.
 		 */
 		void openStreams() throws IOException {
-
-			/* to be completed */
 			this.serverSocket = new ServerSocket(55555);
 			this.clientSocket = serverSocket.accept();
 			this.out = new DataOutputStream(clientSocket.getOutputStream());
 			this.in = new DataInputStream(clientSocket.getInputStream());
-
 		}// openStreams method
 
 		/*
 		 * close all open I/O streams and the client socket
 		 */
 		void close() {
-
-			/* to be completed */
 			try {
 				this.out.close();
 				this.in.close();
@@ -615,7 +622,6 @@ class Peer {
 			}catch(IOException e) {
 				e.printStackTrace();
 			}
-
 		}// close method
 
 	}// FileTransferThread class
