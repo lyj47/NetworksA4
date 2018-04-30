@@ -15,8 +15,6 @@ public class A4 {
 	 * Start a new peer whose parameters are given at the command line
 	 */
 	public static void main(String args[]) {
-//		args = new String[6];
-//		args[0] = "Peer1"; args[1] = "127.0.0.1"; args[2] = "1111"; args[3] = "files/P1"; args[4] = "127.0.0.5"; args[5] = "2222"; //THIS IS PURELY FOR TESTING!
 		String peerName, peerIP, filesPath, neighborIP;
 		int lPort, neighborPort;
 		int numArgs = args.length;
