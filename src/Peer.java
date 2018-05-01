@@ -237,7 +237,7 @@ class Peer {
 
 			for (File local_file : local_files.listFiles()) {
 				if (local_file.getName().equals(requested_file)) {
-					System.out.println("This file exists locally in " + filesPath);
+					System.out.println("This file exists locally in " + filesPath + "\\");
 					isLocalFile = true;
 					break;
 				}
@@ -245,6 +245,7 @@ class Peer {
 
 			if (!isLocalFile) {
 				DatagramSocket socket = new DatagramSocket(12349);
+				//socket.setSoTimeout(10000);
 				socket.setBroadcast(true);
 				DatagramPacket packet = null;
 				
@@ -258,9 +259,11 @@ class Peer {
 				}
 				socket.receive(in_packet);
 				
+				String inPacketData = new String(in_packet.getData());
 				String[] received_data_parts = new String(in_packet.getData()).split(" ");
 				
-				this.neighbors.add(new Neighbor(received_data_parts[0], Integer.parseInt(received_data_parts[1].trim())));
+				if (!inPacketData.equals("We did it")) 				
+					this.neighbors.add(new Neighbor(received_data_parts[0], Integer.parseInt(received_data_parts[1].trim())));
 				
 				socket.close();
 			}
@@ -302,7 +305,7 @@ class Peer {
 
 		for (File local_file : local_files.listFiles()) {
 			if (local_file.getName().equals(requested_file)) {
-				System.out.println("This file exists locally in " + filesPath);
+				System.out.println("This file exists locally in " + filesPath + "\\");
 				isLocalFile = true;
 				break;
 			}
@@ -480,7 +483,6 @@ class Peer {
 						}
 					}
 					
-					System.out.println("joining");
 					
 					if(!isNeighbors) {
 						GUI.displayLU("Received:\tjoin " + source_ip + " " + source_port);
@@ -539,12 +541,24 @@ class Peer {
 				File directory = new File(filesPath);
 
 				boolean hasFoundFile = false;
+				boolean isNeighbor = false;
+				String join_request;
+				byte[] join_data;
 
 				for (File file : directory.listFiles()) {
 					if (file.getName().equals(file_name)) {
 
-						String join_request = "join " + ip + " " + lPort + " " + source_ip + " " + source_port;
-						byte[] join_data = join_request.getBytes();
+						for (Neighbor n : neighbors)
+							if (n.ip == source_ip)
+								isNeighbor = true;
+						
+						if (!isNeighbor) {
+							join_request = "join " + ip + " " + lPort + " " + source_ip + " " + source_port;
+							join_data = join_request.getBytes();
+						} else {
+							join_request = "We did it";
+							join_data = join_request.getBytes();
+						}
 						
 						GUI.displayLU("Received:\tlookup " + file_name + " " + seq_number + " " + source_ip + " "
 								+ source_port);
@@ -552,8 +566,13 @@ class Peer {
 								+ ftPort + ")");
 						DatagramPacket packet;
 						try {
-							packet = new DatagramPacket(join_data, join_data.length, InetAddress.getByName(ip),
-									lPort);
+							if (!isNeighbor) {
+								packet = new DatagramPacket(join_data, join_data.length, InetAddress.getByName(ip),
+										lPort);								
+							} else {
+								packet = new DatagramPacket(join_data, join_data.length, InetAddress.getByName(source_ip),
+										Integer.parseInt(source_port));								
+							}
 							socket.send(packet);
 						} catch (UnknownHostException e) {
 							e.printStackTrace();
