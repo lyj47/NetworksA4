@@ -262,7 +262,8 @@ class Peer {
 				String inPacketData = new String(in_packet.getData());
 				String[] received_data_parts = new String(in_packet.getData()).split(" ");
 				
-				if (!inPacketData.equals("We did it")) 				
+				if (!inPacketData.equals("We did it")) 	
+					System.out.println("AAAYYYYY LMOA");
 					this.neighbors.add(new Neighbor(received_data_parts[0], Integer.parseInt(received_data_parts[1].trim())));
 				
 				socket.close();
@@ -552,13 +553,13 @@ class Peer {
 							if (n.ip == source_ip)
 								isNeighbor = true;
 						
-						if (!isNeighbor) {
+						/*if (!isNeighbor) {
 							join_request = "join " + ip + " " + lPort + " " + source_ip + " " + source_port;
 							join_data = join_request.getBytes();
-						} else {
+						} else {*/
 							join_request = "We did it";
 							join_data = join_request.getBytes();
-						}
+						//}
 						
 						GUI.displayLU("Received:\tlookup " + file_name + " " + seq_number + " " + source_ip + " "
 								+ source_port);
@@ -566,13 +567,13 @@ class Peer {
 								+ ftPort + ")");
 						DatagramPacket packet;
 						try {
-							if (!isNeighbor) {
+							/*if (!isNeighbor) {
 								packet = new DatagramPacket(join_data, join_data.length, InetAddress.getByName(ip),
 										lPort);								
-							} else {
+							} else {*/
 								packet = new DatagramPacket(join_data, join_data.length, InetAddress.getByName(source_ip),
 										Integer.parseInt(source_port));								
-							}
+							//}
 							socket.send(packet);
 						} catch (UnknownHostException e) {
 							e.printStackTrace();
