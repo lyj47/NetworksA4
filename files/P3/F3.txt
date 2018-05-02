@@ -1,0 +1,1 @@
+This is example data for the file F3.txt
