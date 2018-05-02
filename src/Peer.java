@@ -565,8 +565,18 @@ class Peer {
 			String seq_number = line.nextToken().trim();
 			String source_ip = line.nextToken().trim();
 			String source_port = line.nextToken().trim();
+			String lookup_ip = "";
+			String lookup_port = "-1";	
+			
 
 			String full_request = "lookup " + file_name + " " + seq_number + " " + source_ip + " " + source_port;
+
+			if (line.hasMoreTokens()) {
+				lookup_ip = line.nextToken().trim();
+				lookup_port = line.nextToken().trim();
+				full_request += " " + lookup_ip + " " + lookup_port;
+			}
+			
 			byte[] data = full_request.getBytes();
 
 			if (findRequests.contains(seq_number)) {
@@ -618,8 +628,11 @@ class Peer {
 					for (Neighbor n : neighbors) {
 						DatagramPacket packet;
 						try {
-							if (!n.ip.equals(source_ip) && n.port != Integer.parseInt(source_port)) {
+							if ((!n.ip.equals(source_ip) && n.port != Integer.parseInt(source_port)) 
+									|| (!n.ip.equals(lookup_ip) && n.port != Integer.parseInt(lookup_port))) {
 								GUI.displayLU("\tForward request to " + n.ip + ":" + n.port);
+								full_request = "lookup " + file_name + " " + seq_number + " " + source_ip + " " + source_port + " " + n.ip + " " + n.port;
+								data = full_request.getBytes();
 								packet = new DatagramPacket(data, data.length, InetAddress.getByName(n.ip), n.port);
 								socket.send(packet);
 							}
